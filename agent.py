@@ -428,7 +428,9 @@ def tool_specs():
             "description": "Calculate the price of a stay in code: weekday/weekend price for each night "
                            "(weekend price when the next day is Saturday, Sunday or a national holiday), "
                            "10% off the room charge for 3+ nights, extra beds, breakfast and station pick-up. "
-                           "Use this for ANY question about how much a stay costs. Never do the maths yourself.",
+                           "Use this for ANY question about how much a stay costs. Never do the maths yourself. "
+                           "It looks up the room and its prices by itself, so call it directly; "
+                           "do not call search_rooms first.",
             "parameters": {"type": "object", "properties": {
                 "room": {"type": "string", "description": "One room name or room id, e.g. 'Wave' or 'R201'."},
                 "check_in": {"type": "string", "description": date_note},
@@ -505,7 +507,7 @@ Scope rules:
 Routing rules:
 - Rules and general information (check-in, parking, payment, cancellation, pets, breakfast times...) -> get_inn_info.
 - Room types, guests per room, price per night, free rooms on dates -> search_rooms.
-- "How much is a stay" -> calculate_stay_cost.
+- "How much is a stay" (room + dates given) -> call calculate_stay_cost directly. It finds the room and its prices itself, so search_rooms is not needed first.
 - Booking -> ask for name, phone, dates and guests, call create_booking_draft, show the summary and ask the customer to confirm.
 - When the customer replies that they confirm the booking summary you showed, call confirm_booking (no arguments). Do not make a new draft.
 - Complaints, refunds, changing an existing booking, asking for a manager -> transfer_to_human.
