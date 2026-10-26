@@ -432,7 +432,10 @@ def tool_specs():
                            "It looks up the room and its prices by itself, so call it directly; "
                            "do not call search_rooms first.",
             "parameters": {"type": "object", "properties": {
-                "room": {"type": "string", "description": "One room name or room id, e.g. 'Wave' or 'R201'."},
+                "room": {"type": "string", "description": "The room as the customer said it: room name, room id "
+                                                          "or room type, e.g. 'Wave', '浪花房', 'R201', 'Family Suite'. "
+                                                          "Pass their words as they are; if they match more than one "
+                                                          "room the tool will say so."},
                 "check_in": {"type": "string", "description": date_note},
                 "check_out": {"type": "string", "description": date_note},
                 "extra_beds": {"type": "integer", "description": "Extra beds, default 0."},
