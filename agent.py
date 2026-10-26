@@ -16,6 +16,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "inn.db"
 DB_LOCK = threading.Lock()
+DB_LOCK_WRITE = threading.Lock()  # one booking is saved at a time
 
 INN_NAME = "Sea Breeze Lane B&B"
 INN_NAME_ZH = "海風小徑民宿"
@@ -320,15 +321,14 @@ def transfer_to_human(reason):
             "note": "A staff member will contact the customer during staff hours."}
 
 
-# Booking drafts wait here until the customer confirms in a LATER message.
-# draft_id -> {"turn": turn number when the draft was made, "data": {...}}
-BOOKING_DRAFTS = {}
-DRAFT_COUNTER = [0]  # never reused, unlike len(BOOKING_DRAFTS) after a draft is confirmed
-DRAFT_LOCK = threading.Lock()
+# Each chat session keeps at most ONE booking draft in its own session dict:
+# session = {"turn": number of the current customer message, "draft": {...} or None}
+# The draft is kept by the program, so the model does not need to remember any draft id.
 
 
 def create_booking_draft(room, check_in, check_out, guests, guest_name, phone,
-                         extra_beds=0, breakfast_guests=0, pickup_trips=0, _turn=0):
+                         extra_beds=0, breakfast_guests=0, pickup_trips=0, _session=None):
+    session = _session if _session is not None else {"turn": 0}
     if not str(guest_name).strip() or not str(phone).strip():
         return {"created": False, "error": "Ask the customer for their name and phone number first."}
     cost = calculate_stay_cost(room, check_in, check_out, extra_beds, breakfast_guests,
@@ -340,39 +340,47 @@ def create_booking_draft(room, check_in, check_out, guests, guest_name, phone,
         return {"created": False, "error": f"{cost['room']['name']} is already booked on these dates."}
 
     data = {"room_id": room_id, "guest_name": str(guest_name).strip(), "phone": str(phone).strip(),
-            "check_in": cost["check_in"], "check_out": cost["check_out"], "guests": int(guests)}
-    with DRAFT_LOCK:
-        # The chat history keeps only text, so after the customer says "confirm" the model often
-        # makes the same draft again. Reuse the earlier one: its summary was already shown, so
-        # confirm_booking can save it in this message instead of asking the customer again.
-        draft_id = next((k for k, v in BOOKING_DRAFTS.items() if v["data"] == data), None)
-        if draft_id is None:
-            DRAFT_COUNTER[0] += 1
-            draft_id = f"D{DRAFT_COUNTER[0]:04d}"
-            BOOKING_DRAFTS[draft_id] = {"turn": _turn, "data": data}
-    return {"created": True, "draft_id": draft_id, "saved": False,
-            "summary": {"room": cost["room"], "guest_name": guest_name, "phone": phone,
-                        "guests": int(guests), "check_in": cost["check_in"],
+            "check_in": cost["check_in"], "check_out": cost["check_out"], "guests": int(guests),
+            "extra_beds": int(extra_beds), "breakfast_guests": int(breakfast_guests),
+            "pickup_trips": int(pickup_trips)}
+    old = session.get("draft")
+    if old and old["data"] == data:
+        # Same booking again: keep the original draft (and the message number it was shown in).
+        draft = old
+    else:
+        draft = {"turn": session["turn"], "data": data}
+        session["draft"] = draft
+    shown_before = draft["turn"] < session["turn"]
+    return {"created": True, "saved": False,
+            "summary": {"room": cost["room"], "guest_name": data["guest_name"], "phone": data["phone"],
+                        "guests": data["guests"], "check_in": cost["check_in"],
                         "check_out": cost["check_out"], "nights": cost["nights"],
+                        "extra_beds": data["extra_beds"], "breakfast_guests": data["breakfast_guests"],
+                        "pickup_trips": data["pickup_trips"],
                         "total": cost["total"], "deposit_30_percent": cost["deposit_30_percent"]},
-            "next_step": "Show this summary with the draft_id and ask the customer to reply 'confirm'. "
-                         "Nothing is saved until confirm_booking is called in a later message."}
+            "next_step": ("The customer has already seen this summary. If they said they confirm, "
+                          "call confirm_booking now.") if shown_before else
+                         ("Show this summary and ask the customer to reply 'confirm'. "
+                          "Nothing is saved until confirm_booking is called after their reply.")}
 
 
-def confirm_booking(draft_id, _turn=0):
-    with DRAFT_LOCK:
-        draft = BOOKING_DRAFTS.get(str(draft_id).strip())
-        if not draft:
-            return {"saved": False, "error": f"No booking draft '{draft_id}'."}
-        # The program, not the prompt, makes sure the customer has seen the summary:
-        # a draft cannot be confirmed in the same message that created it.
-        if draft["turn"] >= _turn:
-            return {"saved": False,
-                    "error": "The customer has not confirmed yet. Show the summary and wait for their reply."}
-        data = draft["data"]
+def confirm_booking(_session=None):
+    session = _session if _session is not None else {"turn": 0}
+    draft = session.get("draft")
+    if not draft:
+        return {"saved": False, "error": "There is no booking draft. Collect the booking details "
+                                         "and call create_booking_draft first."}
+    # The program, not the prompt, makes sure the customer has seen the summary:
+    # a draft cannot be confirmed in the same message that created it.
+    if draft["turn"] >= session["turn"]:
+        return {"saved": False,
+                "error": "The customer has not seen and confirmed this summary yet. "
+                         "Show the summary and wait for their reply."}
+    data = draft["data"]
+    with DB_LOCK_WRITE:
         d_in, d_out = parse_date(data["check_in"], "check_in"), parse_date(data["check_out"], "check_out")
         if data["room_id"] in booked_room_ids(d_in, d_out):
-            BOOKING_DRAFTS.pop(str(draft_id).strip())
+            session["draft"] = None
             return {"saved": False, "error": "Sorry, the room was booked by someone else in the meantime."}
         count = query("SELECT COUNT(*) AS n FROM bookings")[0]["n"]
         booking_id = f"B{count + 1:04d}"
@@ -380,7 +388,7 @@ def confirm_booking(draft_id, _turn=0):
                 "guests, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'confirmed')",
                 (booking_id, data["room_id"], data["guest_name"], data["phone"],
                  data["check_in"], data["check_out"], data["guests"]))
-        BOOKING_DRAFTS.pop(str(draft_id).strip())
+    session["draft"] = None
     return {"saved": True, "booking_id": booking_id, **data,
             "next_step": "Pay the 30% deposit by bank transfer within 3 days."}
 
@@ -443,15 +451,16 @@ def tool_specs():
                 "required": ["room", "check_in", "check_out", "guests", "guest_name", "phone"]}}},
         {"type": "function", "function": {
             "name": "confirm_booking",
-            "description": "Step 2 of booking. Save a booking draft to the database. Call it ONLY after the "
-                           "customer has seen the summary and replied that they confirm.",
-            "parameters": {"type": "object", "properties": {
-                "draft_id": {"type": "string", "description": "The draft_id from create_booking_draft."}},
-                "required": ["draft_id"]}}},
+            "description": "Step 2 of booking. Save the booking draft that the customer saw in an earlier "
+                           "message. Call it when the customer replies that they confirm (e.g. '確認', 'yes', "
+                           "'confirm'). It takes no arguments; the program remembers the draft.",
+            "parameters": {"type": "object", "properties": {}, "required": []}}},
         {"type": "function", "function": {
             "name": "transfer_to_human",
             "description": "Hand the customer to a staff member: complaints, refunds or changes to an existing "
-                           "booking, asking for a manager, or any inn question the other tools cannot answer.",
+                           "booking, asking for a manager, or any question about this inn that the other tools cannot answer, "
+                           "such as a service or facility that is not in the get_inn_info topics "
+                           "(e.g. spa, laundry, swimming pool). Never just say 'I don't know' without calling this tool.",
             "parameters": {"type": "object", "properties": {
                 "reason": {"type": "string", "description": "Short reason for the transfer."}},
                 "required": ["reason"]}}},
@@ -466,7 +475,7 @@ TOOLS = {
     "confirm_booking": confirm_booking,
     "transfer_to_human": transfer_to_human,
 }
-TOOLS_WITH_TURN = {"create_booking_draft", "confirm_booking"}
+TOOLS_WITH_SESSION = {"create_booking_draft", "confirm_booking"}
 
 
 # ----------------------------------------------------------------------------
@@ -490,14 +499,17 @@ Grounding rules:
 
 Scope rules:
 - Only talk about this inn: rooms, prices, bookings, rules and travel to the inn.
-- Politely decline anything else (homework, coding, general chat, other hotels) and bring the talk back to the inn. Do not call a tool for these.
+- Questions about this inn's services or facilities ARE in scope, even when the data does not mention them.
+- Politely decline anything that is not about this inn (homework, coding, general knowledge, chat, other hotels) and bring the talk back to the inn. Do not call a tool for these.
 
 Routing rules:
 - Rules and general information (check-in, parking, payment, cancellation, pets, breakfast times...) -> get_inn_info.
 - Room types, guests per room, price per night, free rooms on dates -> search_rooms.
 - "How much is a stay" -> calculate_stay_cost.
-- Booking -> ask for name, phone, dates and guests, call create_booking_draft, show the summary with its draft_id and ask the customer to confirm. Call confirm_booking with that draft_id only after the customer replies that they confirm; do not make a new draft for the same booking.
-- Complaints, refunds, changing an existing booking, asking for a manager, or inn questions the data cannot answer -> transfer_to_human.
+- Booking -> ask for name, phone, dates and guests, call create_booking_draft, show the summary and ask the customer to confirm.
+- When the customer replies that they confirm the booking summary you showed, call confirm_booking (no arguments). Do not make a new draft.
+- Complaints, refunds, changing an existing booking, asking for a manager -> transfer_to_human.
+- A question about this inn that no get_inn_info topic covers (for example a service or facility we may not have) -> say you do not have that information AND call transfer_to_human in the same reply.
 - Turn relative dates ("this Friday", "next weekend") into YYYY-MM-DD from today's date. If the dates or number of guests are unclear, ask the customer.
 
 Language and format rules:
@@ -522,7 +534,7 @@ def make_client():
     return client, os.getenv("MODEL_NAME")
 
 
-def run_tool(name, raw_args, turn):
+def run_tool(name, raw_args, session):
     if name not in TOOLS:
         return {"error": f"Unknown tool '{name}'. Only these tools exist: {', '.join(TOOLS)}."}, {}
     try:
@@ -533,15 +545,21 @@ def run_tool(name, raw_args, turn):
         return {"error": f"Bad arguments: {e}"}, {}
     args = {k: v for k, v in args.items() if v is not None and not str(k).startswith("_")}
     try:
-        call_args = dict(args, _turn=turn) if name in TOOLS_WITH_TURN else args
+        call_args = dict(args, _session=session) if name in TOOLS_WITH_SESSION else args
         return TOOLS[name](**call_args), args
     except (TypeError, ValueError) as e:
         return {"error": str(e)}, args
 
 
-def run_agent(client, model, history, user_message, turn, max_steps=6):
+def new_session():
+    return {"turn": 0, "draft": None}
+
+
+def run_agent(client, model, history, user_message, session, max_steps=6):
     """history: earlier messages [{'role': 'user'|'assistant', 'content': str}].
+    session: dict from new_session(), kept for one chat; its turn number goes up by one here.
     Returns (answer, trace) where trace lists every tool call."""
+    session["turn"] += 1
     language = reply_language(user_message)
     messages = [{"role": "system", "content": system_prompt(language)}]
     messages += [{"role": m["role"], "content": m["content"]} for m in history
@@ -563,7 +581,7 @@ def run_agent(client, model, history, user_message, turn, max_steps=6):
                                                       "arguments": c.function.arguments}}
                                         for c in tool_calls]})
         for call in tool_calls:
-            result, args = run_tool(call.function.name, call.function.arguments, turn)
+            result, args = run_tool(call.function.name, call.function.arguments, session)
             trace.append({"step": step, "tool": call.function.name, "arguments": args, "result": result})
             messages.append({"role": "tool", "tool_call_id": call.id,
                              "content": json.dumps(result, ensure_ascii=False)})

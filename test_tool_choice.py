@@ -39,7 +39,7 @@ def main():
     rows, correct = [], 0
     for i, (category, question, accepted) in enumerate(TESTS, 1):
         try:
-            answer, trace = agent.run_agent(client, model, [], question, turn=1)
+            answer, trace = agent.run_agent(client, model, [], question, agent.new_session())
         except Exception as e:
             answer, trace = f"API error: {e}", []
         first = trace[0]["tool"] if trace else "none"

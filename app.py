@@ -43,23 +43,22 @@ def show_trace(trace):
     return "\n\n---\n\n".join(parts)
 
 
-def respond(user_message, history, turn):
+def respond(user_message, history, session):
     user_message = (user_message or "").strip()
     if not user_message:
-        return "", history, history, gr.update(), turn
-    turn += 1
+        return "", history, history, gr.update(), session
     try:
-        answer, trace = agent.run_agent(CLIENT, MODEL, history, user_message, turn, MAX_STEPS)
+        answer, trace = agent.run_agent(CLIENT, MODEL, history, user_message, session, MAX_STEPS)
     except Exception as e:  # API errors such as a wrong key or 429 too many requests
         answer, trace = f"⚠️ API error: {e}", []
     history = history + [{"role": "user", "content": user_message},
                          {"role": "assistant", "content": answer or "(empty answer)"}]
-    return "", history, history, show_trace(trace), turn
+    return "", history, history, show_trace(trace), session
 
 
 def clear():
     start = [{"role": "assistant", "content": agent.GREETING}]
-    return start, start, "_No tool has been called yet._", 0
+    return start, start, "_No tool has been called yet._", agent.new_session()
 
 
 def make_chatbot(start):
@@ -74,7 +73,7 @@ with gr.Blocks(title=f"{agent.INN_NAME} Customer Service") as demo:
                 f"AI customer service · Model: `{MODEL}` · All data is fictional.")
     start = [{"role": "assistant", "content": agent.GREETING}]
     history_state = gr.State(start)
-    turn_state = gr.State(0)
+    session_state = gr.State(agent.new_session())
 
     with gr.Row():
         with gr.Column(scale=3):
@@ -88,10 +87,10 @@ with gr.Blocks(title=f"{agent.INN_NAME} Customer Service") as demo:
             gr.Markdown("### 🔧 Tools used")
             trace_box = gr.Markdown("_No tool has been called yet._")
 
-    outputs = [box, chatbot, history_state, trace_box, turn_state]
-    send.click(respond, [box, history_state, turn_state], outputs)
-    box.submit(respond, [box, history_state, turn_state], outputs)
-    reset.click(clear, None, [chatbot, history_state, trace_box, turn_state])
+    outputs = [box, chatbot, history_state, trace_box, session_state]
+    send.click(respond, [box, history_state, session_state], outputs)
+    box.submit(respond, [box, history_state, session_state], outputs)
+    reset.click(clear, None, [chatbot, history_state, trace_box, session_state])
 
 
 if __name__ == "__main__":
