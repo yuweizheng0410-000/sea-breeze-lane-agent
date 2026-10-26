@@ -1,0 +1,17 @@
+room_id,name,name_zh,room_type,room_type_zh,capacity,max_extra_beds,weekday_price,weekend_price,view,available
+R101,Seashell,貝殼,Double Room,雙人房,2,1,2400,3000,garden,yes
+R102,Driftwood,漂流木,Twin Room,雙床房,2,0,2400,3000,garden,yes
+R103,Lighthouse,燈塔,Accessible Double Room,無障礙雙人房,2,0,2600,3200,garden,yes
+R104,Coral,珊瑚,Family Quad Room,家庭四人房,4,1,4200,5200,garden,yes
+R201,Wave,浪花,Ocean View Double Room,海景雙人房,2,1,3200,4000,ocean,yes
+R202,Tide,潮汐,Ocean View Double Room,海景雙人房,2,1,3200,4000,ocean,yes
+R203,Sunrise,日出,Ocean View Twin Room,海景雙床房,2,0,3400,4200,ocean,yes
+R204,Sandbar,沙洲,Ocean View Triple Room,海景三人房,3,1,3900,4800,ocean,yes
+R205,Pebble,石頭,Ocean View Quad Room,海景四人房,4,1,4800,5800,ocean,no
+R301,Seagull,海鷗,Balcony Double Room,陽台雙人房,2,1,3600,4400,ocean,yes
+R302,Starfish,海星,Balcony Double Room with Bathtub,陽台浴缸雙人房,2,1,3800,4600,ocean,yes
+R303,Moonlight,月光,Balcony Twin Room,陽台雙床房,2,0,3600,4400,ocean,yes
+R304,Pacific,太平洋,Family Suite,家庭套房,6,0,6800,8200,ocean,yes
+R305,Breeze,微風,Single Room,單人房,1,0,1600,2000,mountain,yes
+R306,Hill,山嵐,Mountain View Double Room,山景雙人房,2,1,2600,3200,mountain,yes
+R307,Firefly,螢火蟲,Mountain View Quad Room,山景四人房,4,1,4000,5000,mountain,yes

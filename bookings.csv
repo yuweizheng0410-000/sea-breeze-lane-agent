@@ -1,0 +1,9 @@
+booking_id,room_id,guest_name,phone,check_in,check_out,guests,status
+B0001,R201,Chen Mei-Ling,0900-000-001,2026-10-30,2026-11-01,2,confirmed
+B0002,R304,Lin Family,0900-000-002,2026-10-31,2026-11-01,6,confirmed
+B0003,R104,Wang Chih-Hao,0900-000-003,2026-11-06,2026-11-08,4,confirmed
+B0004,R202,Huang Yu-Ting,0900-000-004,2026-11-06,2026-11-07,2,confirmed
+B0005,R302,Sato Yuki,0900-000-005,2026-11-13,2026-11-15,2,confirmed
+B0006,R307,Kuo Family,0900-000-006,2026-11-20,2026-11-22,4,confirmed
+B0007,R301,Lee Chun-Wei,0900-000-007,2026-12-24,2026-12-27,2,confirmed
+B0008,R203,Tsai Pei-Jun,0900-000-008,2026-12-25,2026-12-27,2,confirmed

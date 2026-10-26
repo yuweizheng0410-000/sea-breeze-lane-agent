@@ -1,0 +1,95 @@
+alias,room_id
+海景,R201
+海景,R202
+海景,R203
+海景,R204
+海景,R205
+海景,R301
+海景,R302
+海景,R303
+海景,R304
+海景房,R201
+海景房,R202
+海景房,R203
+海景房,R204
+海景房,R205
+海景房,R301
+海景房,R302
+海景房,R303
+海景房,R304
+sea view,R201
+sea view,R202
+sea view,R203
+sea view,R204
+sea view,R205
+sea view,R301
+sea view,R302
+sea view,R303
+sea view,R304
+ocean view,R201
+ocean view,R202
+ocean view,R203
+ocean view,R204
+ocean view,R205
+ocean view,R301
+ocean view,R302
+ocean view,R303
+ocean view,R304
+山景,R306
+山景,R307
+mountain view,R306
+mountain view,R307
+陽台,R301
+陽台,R302
+陽台,R303
+balcony,R301
+balcony,R302
+balcony,R303
+浴缸,R302
+bathtub,R302
+無障礙,R103
+輪椅,R103
+wheelchair,R103
+accessible,R103
+單人,R305
+single,R305
+雙人,R101
+雙人,R201
+雙人,R202
+雙人,R301
+雙人,R302
+雙人,R306
+double,R101
+double,R201
+double,R202
+double,R301
+double,R302
+double,R306
+雙床,R102
+雙床,R203
+雙床,R303
+兩張床,R102
+兩張床,R203
+兩張床,R303
+twin,R102
+twin,R203
+twin,R303
+三人,R204
+triple,R204
+四人,R104
+四人,R205
+四人,R307
+家庭,R104
+家庭,R304
+家庭,R307
+family,R104
+family,R304
+family,R307
+quad,R104
+quad,R205
+quad,R307
+套房,R304
+六人,R304
+suite,R304
+最便宜,R305
+cheapest,R305

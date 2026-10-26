@@ -1,0 +1,7 @@
+item,item_zh,price,unit,unit_zh
+breakfast,早餐,250,per guest per morning,每人每早
+extra_bed,加床,600,per bed per night,每床每晚
+station_pickup,火車站接駁,400,per trip (up to 4 guests),每趟（限 4 人）
+bike_rental,自行車租借,150,per bike per day,每台每日
+late_checkout,延遲退房至 13:00,500,per room,每間
+bbq_set,烤肉組,800,per set,每組
